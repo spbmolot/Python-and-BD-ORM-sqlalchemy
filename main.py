@@ -1,5 +1,6 @@
 import json
 import os
+from operator import or_
 
 import sqlalchemy
 from dotenv import load_dotenv
@@ -24,20 +25,19 @@ def loading_data():
     session.commit()
 
 
-def search(request):
-    query = session.query(
-            Book.title, Shop.name, Sale.price, Sale.date_sale
-        ).filter(
-            Stock.id == Sale.stock_id
-        ).filter(
-            Book.id == Stock.book_id
-        ).filter(
-            Publisher.id == Book.publisher_id
-        ).filter(
-            Shop.id == Stock.shop_id
-        )
+def search(req):
+    author_id = None
+    author_name = None
+    if req.isdigit():
+        author_id = req
+    else:
+        author_name = req
 
-    return query.filter(Publisher.name == request or Publisher.id == request)
+    res = session.query(Book.title, Shop.name, Sale.price, Sale.count, Sale.date_sale). \
+        join(Publisher).join(Stock).join(Sale).join(Shop). \
+        filter(or_(Publisher.id == author_id, Publisher.name == author_name))
+
+    return res
 
 
 if __name__ == '__main__':
@@ -48,9 +48,9 @@ if __name__ == '__main__':
     session = Session()
 
     loading_data()
-    req = input("Введите имя или идентификатор издателя: ")
-    for datas in search(req):
-        print()
-        for _ in datas:
-            print(_, end=' | ')
+    inp = input("Введите имя или идентификатор издателя: ")
+
+    for book, shop, price, count, date in search(inp):
+        print(f'{book: <40} | {shop: <10} | {price * count: <8} | {date.strftime("%d-%m-%Y")}')
+
     session.close()
